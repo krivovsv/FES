@@ -1,0 +1,52 @@
+NonParametric Variational Reaction Coordinate OPtimization
+
+Given a long equilbrium trajectory and two boundary states A and B the programm finds the optimal reaction coordinate (the committor) between the two boundary states. 
+Instead of computing
+
+The programm computes r(kdt), i.e., the value of the optimal reaction coordinate for each snapshot of the trajectory, hence nonparametric. When the total squared deviation of the putative RC reaches the lowest value of NAB - the number of transitions from A to B, the RC equals the committor.
+
+
+
+
+Usage of npvrcop:
+
+npvrcop --key1 value1 --key2 value2 ...
+
+A simple usage example:
+
+npvrcop --idcd inputdcdfilename --seedrc seedrcfilename --seedrcind 1 --xA 3 --xB 5
+
+will find the optimal RC between two states defined by r<3 and r>5, where r is the seed RC timeseries read from the first column of the seedrc file. 
+
+
+Parameters
+
+--idcd input dcd file name. default value "in.dcd"
+--seedrc the seed RC file name. default value "seedrc"
+--seedrcind the column in the seed RC file that contains seed RC. default value 1
+--seed the seed value for the RNG. default value 1234
+--xA  the boundary for the state A along the seed RC. default value 0
+--xB  the boundary for the state B along the seed RC. default value 1
+--plev printing level. default value 0
+--ny the degree of the polynomial used to update RC in iterations. default value 4
+
+--niter the maximum number of iterations of optimization. default value 1000000
+
+--dr2 the minimal value of dr^2/2 to optimize, default value is NAB, the number of transitions from state A to B.
+
+--natom number of atoms to use during optimization. default value 0, meaning all atoms. A smaller number of atoms could be used to decrease the memory footprint. In this case every 100000 iterations the programs randomly selects natom atoms and read their coordinates.
+
+--nsets number of trajectory snapshots (sets) to use during optimization. default value 0, meaning full trajectory
+
+--iwrcr frequency to save RC time-series, default value 2000, meaning the RC will be written every 2000 iterations. The RC time-series is saved into file "rc".
+
+--iwrzc frequency to save zh(r) and zc1(r,dt) profiles, default value 200. the profiles are saved in file rc.zc in the following format:
+r zh1(r) zh2(r) zc1(r,dt=1) zc1(r,dt=2) .... zc1(r,dt=2^16). Here zh1(r) and zh2(r) are conventional density of states computed in two different way, first using the conventional histogram, second by using Z_{C,-1}(r)/2. z_{C,1}(r,dt) profiles are used as a stringent test of RC optimality or RC closeness to the committor. For the committor Z_{C,1}(q,dt)=NAB.
+
+One can monitor how these profiles change during optimization by using script monitor.py or monitor2.py, which can be run as monitor.py & or monitor2.py &. The scripts plots zh and zc1 profiles. It monitors the file rc.zc and updates the plot every time the file has been changed.
+
+During optimization the program prints: iter,   dr^2/2,   NAB; where iter is the iteration number, dr^2/2 is the current value of dr^2/2 and NAB is the number of transitions from state A to state B. As optimization progresses dr^2/2 decreases.
+The lowest value of dr^2/2 is achieved for committor and equals NAB. For a realistic system with limited sampling dr^2/2 could become lower than NAB, which is an indication of overfitting.
+
+After the optimal RC has been determined, its properties can be analysed with script fep1d.py. In particular, one is advised to transform the RC to a natural RC, along which the diffusion coefficient is constant D=1 and build the free energy profiles.
+

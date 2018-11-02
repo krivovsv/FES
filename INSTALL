@@ -1,0 +1,10 @@
+Installation instructions:
+
+npvrcop: type make. Dependencies: lapack and gfortran. In Fedora these can be installed with: yum install lapack-devel.x86_64 gcc-gfortran.x86_64
+  
+monitor.py: none. Dependencies: python, gnuplot, gnuplot-py. In Fedora these can be installed with: yum install python gnuplot gnuplot-py 
+
+monitor2.py: none. Dependencies: python, matplotlib. In Fedora these can be installed with: yum install python2-matplotlib
+
+fep1d.py: none. Dependencies: python, gnuplot, gnuplot-py.
+
