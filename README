@@ -1,11 +1,14 @@
-NonParametric Variational Reaction Coordinate OPtimization
+A powerful approach to analyze dynamics contained in simulation trajectories is to describe/approximate it by diffusion on a free energy landscape - free energy as a function of reaction coordinates (RC). For the description to be quantitatively accurate, RCs should be chosen in an optimal way. Here were present tools to determine and validate such cooridnates, construct free energy landscapes and analyse dynamics. 
 
-Given a long equilbrium trajectory and two boundary states A and B the programm finds the optimal reaction coordinate (the committor) between the two boundary states. 
-Instead of computing
+Tools:
 
-The programm computes r(kdt), i.e., the value of the optimal reaction coordinate for each snapshot of the trajectory, hence nonparametric. When the total squared deviation of the putative RC reaches the lowest value of NAB - the number of transitions from A to B, the RC equals the committor.
+npvrcop - NonParametric Variational Reaction Coordinate OPtimization. Given a long equilbrium trajectory and two boundary states A and B the programm finds the optimal RC (the committor) between the two boundary states. Nonparametric means that the programm computes the RC timeseries r(t) - the value of the RC for every snapshot of trajectory, rathen then parameters of a functional form approximating the RC.
 
+npvevop - NonParametric Variational EigenVector OPtimization. Given a long equilbrium trajectory the programm finds the right eigenvector(s) of the Transition Matrix. 
 
+fep1d.py - script for the analysis and validation of RCs, construction of free energy profiles and analysis of dynamics.
+
+monitor.py, monitor2.py, monitorev.py - scripts to monitor optimization of RCs or eigenvectors in real time. They show the free energy profiles as a function of the RC, as well as stringent optimality criteria.
 
 
 Usage of npvrcop:
@@ -41,7 +44,7 @@ Parameters
 --iwrcr frequency to save RC time-series, default value 2000, meaning the RC will be written every 2000 iterations. The RC time-series is saved into file "rc".
 
 --iwrzc frequency to save zh(r) and zc1(r,dt) profiles, default value 200. the profiles are saved in file rc.zc in the following format:
-r zh1(r) zh2(r) zc1(r,dt=1) zc1(r,dt=2) .... zc1(r,dt=2^16). Here zh1(r) and zh2(r) are conventional density of states computed in two different way, first using the conventional histogram, second by using Z_{C,-1}(r)/2. z_{C,1}(r,dt) profiles are used as a stringent test of RC optimality or RC closeness to the committor. For the committor Z_{C,1}(q,dt)=NAB.
+r zh1(r) zh2(r) zc1(r,dt=1) zc1(r,dt=2) .... zc1(r,dt=2^16). Here zh1(r) and zh2(r) are conventional density of states computed in two different way, first using the conventional histogram, second by using 2Z_{C,-1}(r). z_{C,1}(r,dt) profiles are used as a stringent test of RC optimality or RC closeness to the committor. For the committor Z_{C,1}(q,dt)=NAB.
 
 One can monitor how these profiles change during optimization by using script monitor.py or monitor2.py, which can be run as monitor.py & or monitor2.py &. The scripts plots zh and zc1 profiles. It monitors the file rc.zc and updates the plot every time the file has been changed.
 
