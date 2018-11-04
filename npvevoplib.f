@@ -67,7 +67,7 @@
       enddo
       call dsygv(1,'V','U',nij2,dxdx,isize,xx,isize,w,work,lwork,info)
       if (info/=0)then
-        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
+c        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
         return 
         stop
       endif
@@ -237,7 +237,7 @@
       real*8 rc(nsets),eval
       
       integer ni,nev
-      parameter (ni=1000,nev=3)
+      parameter (ni=10000,nev=3)
       real*8 zc1(ni),zh(ni),u(ni),dudx(ni)
 
       integer jdt,i,i1,i2,iset,j,mev
@@ -253,37 +253,40 @@
       call compzc1(rc,nsets,zc1,ni,xmin,dx,idt)
       call compzh2(rc,nsets,zh,ni,xmin,dx)
       
-      do i=1,ni
-        d(i)=-2*zc1(i)/zh(i)/dx**2
-        if (i==1)then
-          ud(1)=-d(1)
-        elseif(i==ni)then
-          ld(ni)=-d(ni)
-        else
-          dzc1=(zc1(i+1)-zc1(i-1))/4
-          ud(i)=(dzc1+zc1(i))/zh(i)/dx**2
-          ld(i)=(-dzc1+zc1(i))/zh(i)/dx**2
-          if (ld(i)<0 .or. ud(i)<0)return
-        endif
-      enddo
-      rho(1)=1
       do i=2,ni
-        rho(i)=rho(i-1)*sqrt(ld(i)/ud(i-1))
-        e(i-1)=ld(i)/sqrt(ld(i)/ud(i-1))
+        if (zc1(i)<1e-5)zc1(i)=zc1(i-1)
+        if (zh(i)<1e-5)zh(i)=zh(i-1)
       enddo
       
+      do i=1,ni
+        if (i==1) then
+          ud(i)=sqrt(abs(zc1(i+1)*zc1(i)))/abs(zh(i))
+          d(i)=-ud(i)
+        elseif(i==ni) then
+          ld(i-1)=sqrt(abs(zc1(i-1)*zc1(i)))/abs(zh(i))
+          d(i)=-ld(i-1)
+        else
+          ud(i)=sqrt(abs(zc1(i+1)*zc1(i)))/abs(zh(i))
+          ld(i-1)=sqrt(abs(zc1(i-1)*zc1(i)))/abs(zh(i))
+          d(i)=-ud(i)-ld(i-1)
+        endif
+      enddo
+      !symmetrize
+      do i=1,ni-1
+        ud(i)=ud(i)*sqrt(abs(zh(i)/zh(i+1)))
+        ld(i)=ld(i)*sqrt(abs(zh(i+1)/zh(i)))
+      enddo
 c          dstevx (JOBZ, RANGE, N, D, E, VL, VU, IL, IU, ABSTOL, M, W,
 c           Z, LDZ, WORK, IWORK, IFAIL, INFO)
-      call dstevx('V','I',ni,d,e,0d0,0d0,ni-nev+1,ni,1d-15,mev,w,z,ni
+      call dstevx('V','I',ni,d,ld,0d0,0d0,ni-nev+1,ni,1d-15,mev,w,z,ni
      $            ,work,iwork,ifail,info)
       if (mev==0)return
-      write(*,*)mev,w(1:nev)
+c      write(*,*)mev,w(1:nev)/dx**2
       do j=1,nev
         do i=1,ni
-          z(i,j)=z(i,j)*rho(i)
+          z(i,j)=z(i,j)/sqrt(zh(i))
         enddo
       enddo
-c      return
       do i=2,ni
         u(i)=z(i-1,nev-1)
         dudx(i)=(z(i,nev-1)-z(i-1,nev-1))/dx
@@ -320,10 +323,7 @@ c      return
       enddo
       if(s<0)rcn=-rcn
       
-      
       evaln=compeval(rcn,nsets,1)
-      write(*,*)'evals',eval,evaln
-c      return
       if (evaln<eval) then
         rc=rcn
         eval=evaln
@@ -438,34 +438,6 @@ c      ci(ni)=ci(ni-1)
       endif
       end
 
-      subroutine compeval2(ev,nsets,dt)
-      implicit none
-      integer nsets,dt
-      real*8 ev(nsets),compeval
-      
-      integer iset
-      real*8 dx2,x2
-
-      dx2=0
-      x2=0
-!$OMP PARALLEL  default(none) 
-!$OMP&   SHARED(nsets,dt,ev) 
-!$OMP&   reduction(+:dx2,x2) 
-
-!$OMP DO
-      do iset=1,nsets-dt
-        dx2=dx2+(ev(iset+dt)-ev(iset))**2
-        x2=x2+ev(iset)**2
-      enddo    
-!$OMP END PARALLEL 
-      if (dx2>x2*2)then
-        compeval=777
-      else
-        compeval=-log(1-dx2/x2/2)/dt
-      endif
-      write(*,*)'compeval',compeval,dx2,x2
-      end
-
       subroutine writeevcriterion(name,ev,nsets,ldt,dt0)
       implicit none
       character*(*) name
@@ -486,7 +458,7 @@ c      ci(ni)=ci(ni-1)
 
       call zc1ldt(ev,nsets,zc1i,ni,xmin,dx,ldt)
       call zc10(ev,nsets,zc10i,ni,xmin,dx)
-
+      
       zh=0
 !$OMP PARALLEL  default(none) 
 !$OMP&   SHARED(nsets,dx,ev,xmin) 
@@ -513,8 +485,10 @@ c      ci(ni)=ci(ni-1)
         endif
       enddo
       open(unit=11,file=name)
-      do i=1,ni
-        if(zc10i(i)>0)write(11,'(f8.4, 20f9.3)')dx*i+xmin
+      do i=1,ni-1
+        if (i>1 .and. zc1i(i-1,1) >1e-5 .and.
+     $   abs(zc1i(i,1)/zc10i(i)/(zc1i(i-1,1)/zc10i(i-1))-1)>0.5)exit ! to avoid boundary spikes
+        write(11,'(f8.4, 20f9.3)')dx*i+xmin
      $   ,-log(max(zh(i),1d0)/dx)
      $   ,-log(max(zh2(i),1d0)*2)
      $   ,(-log(zc1i(i,idt)/zc10i(i)/sc(idt)/2),idt=1,ldt)

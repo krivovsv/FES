@@ -59,7 +59,7 @@
         endif
       enddo
       if (plev>=0) write(*,*)
-     $ 'NonParametric Variational Reaction Coordinate Optimization'
+     $ 'NonParametric Variational EigenVector Optimization'
       if (plev>=1)then
         write(*,*)'input parameters:'
         write(*,*)'--idcd = ', trim(idcd)
@@ -84,6 +84,7 @@
       if (nsets>nsets0)stop'nsets > trajectory length'
       if (natom==0)natom=natom0
       if (natom>natom0)stop'natom > number of atoms in the trajectory'
+      if (nev>1)stop'nev>1 is not implemented yet'
       r=rand(-abs(seed))
 !$OMP PARALLEL
 !$    if (plev>=0 .and. omp_get_thread_num()==0)
@@ -124,19 +125,21 @@
          
         call comprij(x,y,z,natom,nsets,rij)
         call optimdx2ev(ev,nev,nsets,ny,rij,ny,rcfix,idt,eval)
-c        if (mod(iter,5)==0)
-c     $    call anev(ev,nsets,idt,eval)
+        if (mod(iter,5)==0)
+     $    call anev(ev,nsets,idt,eval)
         if (mod(iter,10)==0)
      $    call optimdx2ev(ev,nev,nsets,10,rij,0,rcfix,idt,eval)
 
         eval0=compeval(ev(1,1),nsets,idt0)
-        if (eval<eval0)exit
+        if (eval<eval0 .and. eval0<1)exit
         if (mod(iter,10)==0 .and. plev>=0) write(*,*)iter,eval,eval0
         if (iwrev>0 .and. iter>0 .and. mod(iter,iwrev)==0)
      $    call writeev('ev',ev,nsets,nev)
         if (iwrzc>0 .and. iter>0 .and. mod(iter,iwrzc)==0)
      $    call writeevcriterion('ev.zc',ev,nsets,16,idt0)
       enddo
+      call anev(ev,nsets,idt,eval)
+      write(*,*)iter,eval,eval0
       call writeev('ev',ev,nsets,nev)
       call writeevcriterion('ev.zc',ev,nsets,16,idt0)
       end
