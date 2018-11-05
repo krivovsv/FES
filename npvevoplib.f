@@ -486,14 +486,17 @@ c      ci(ni)=ci(ni-1)
       enddo
       open(unit=11,file=name)
       do i=1,ni-1
-        if (i>1 .and. zc1i(i-1,1) >1e-5 .and.
-     $   abs(zc1i(i,1)/zc10i(i)/(zc1i(i-1,1)/zc10i(i-1))-1)>0.5)exit ! to avoid boundary spikes
+        do idt=1,ldt
+        if (i>ni-10 .and. zc1i(i-1,idt) >1e-5 .and.
+     $   abs(zc1i(i,idt)/zc10i(i)/(zc1i(i-1,idt)/zc10i(i-1))-1)>0.5)
+     $   goto 10 ! to avoid boundary spikes
+        enddo
         write(11,'(f8.4, 20f9.3)')dx*i+xmin
      $   ,-log(max(zh(i),1d0)/dx)
      $   ,-log(max(zh2(i),1d0)*2)
      $   ,(-log(zc1i(i,idt)/zc10i(i)/sc(idt)/2),idt=1,ldt)
         enddo
-      close(11)
+10    close(11)
       end  
 
       subroutine zc1ldt(rc,nsets,cildt,ni,xmin,dx,ldt)

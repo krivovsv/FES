@@ -47,7 +47,7 @@
           read(val,*)niter
         elseif (arg=='--dr2')then
           read(val,*)dr2
-        elseif (arg=='--printlev')then
+        elseif (arg=='--plev')then
           read(val,*)plev
         elseif (arg=='--natom')then
           read(val,*)natom
@@ -76,7 +76,7 @@
         write(*,*)'--xA =',xA, '--xB =',xB
         write(*,*)'--niter =',niter
         write(*,*)'--dr2 =',dr2
-        write(*,*)'--printlev =',plev
+        write(*,*)'--plev =',plev
         write(*,*)'--natom =',natom
         write(*,*)'--nsets =',nsets
         write(*,*)'--seed =',seed

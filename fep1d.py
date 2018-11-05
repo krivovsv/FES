@@ -738,7 +738,7 @@ def fep1d(ldat, cfep=1, cfep1=0, cfepr=0, hfep=0, D=0, alpha=None, pfold=0, pfol
   5 different methods have been impleentd to estimate the density of states  
   --hfep=1  - computes histogram based (HFEP) conventional profile. 
   --hfep=2  - computes histogram based (HFEP) conventional profile with adpative choice of dx.
-  --hfep=3  - estimates the denisty of states as Z_{C,-1}/2
+  --hfep=3  - estimates the denisty of states as 2Z_{C,-1}
   --hfep=4  - computes histogram based (HFEP) conventional profile with another adpative choice of dx.
   --hfep=5  - estimates the density of states using kernel density estimator gkde from scipy.stats module
   --hfep=[1,3] - e.g., can be used to plot a few estimates simultaneosly. 
@@ -747,7 +747,7 @@ def fep1d(ldat, cfep=1, cfep1=0, cfepr=0, hfep=0, D=0, alpha=None, pfold=0, pfol
   
   
   Reaction coordinate transformations:
-  --transformto=natural  
+  --transformto=natural, natural2, natural3
   --transformto=Za 
   --transformto=pfold 
   --transformto=pfoldMSM

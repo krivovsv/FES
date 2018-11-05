@@ -3,7 +3,7 @@
       character*100 arg,val
       integer iarg,narg
       
-      integer niter,plev,seed,ny,iwrev,iwrzc,nev,idt0
+      integer niter,plev,seed,ny,iwrev,iwrzc,nev,idt1
       character*100 idcd
       real*8 r
       
@@ -23,7 +23,7 @@
       nsets=0
       iwrev=2000
       iwrzc=200
-      idt0=4096
+      idt1=4096
       
       narg=command_argument_count()
       do iarg=1,narg,2
@@ -37,7 +37,7 @@
           read(val,*)nev
         elseif (arg=='--niter')then
           read(val,*)niter
-        elseif (arg=='--printlev')then
+        elseif (arg=='--plev')then
           read(val,*)plev
         elseif (arg=='--natom')then
           read(val,*)natom
@@ -51,8 +51,8 @@
           read(val,*)iwrev
         elseif (arg=='--iwrzc')then
           read(val,*)iwrzc
-        elseif (arg=='--idt0')then
-          read(val,*)idt0
+        elseif (arg=='--idt1')then
+          read(val,*)idt1
         else
           write(*,*)'unknown command: ',trim(arg)
           stop 'exiting...' 
@@ -65,14 +65,14 @@
         write(*,*)'--idcd = ', trim(idcd)
         write(*,*)'--nev =',nev
         write(*,*)'--niter =',niter
-        write(*,*)'--printlev =',plev
+        write(*,*)'--plev =',plev
         write(*,*)'--natom =',natom
         write(*,*)'--nsets =',nsets
         write(*,*)'--seed =',seed
         write(*,*)'--ny =',ny
         write(*,*)'--iwrev =',iwrev
         write(*,*)'--iwrzc =',iwrzc
-        write(*,*)'--idt0 =',idt0
+        write(*,*)'--idt1 =',idt1
       endif
       call opendcd(idcd,1,natom0,nsets0,ft)
       close(1)
@@ -91,14 +91,14 @@
 !$   $  write(*,*)'number of threads', omp_get_num_threads()
 !$OMP END PARALLEL
       call driver(idcd,natom,natom0,nsets,nev,niter,ny,plev,iwrev,iwrzc
-     $  ,idt0)
+     $  ,idt1)
       end
       
       subroutine driver
-     $ (idcd,natom,natom0,nsets,nev,niter,ny,plev,iwrev,iwrzc,idt0)
+     $ (idcd,natom,natom0,nsets,nev,niter,ny,plev,iwrev,iwrzc,idt1)
       implicit none
       character*(*) idcd
-      integer natom,natom0,nsets,nev,niter,plev,ny,iwrev,iwrzc,idt0
+      integer natom,natom0,nsets,nev,niter,plev,ny,iwrev,iwrzc,idt1
 
       real*8 ev(nsets,nev)
       real*8 rij(nsets),eval,compeval,eval0
@@ -130,18 +130,18 @@
         if (mod(iter,10)==0)
      $    call optimdx2ev(ev,nev,nsets,10,rij,0,rcfix,idt,eval)
 
-        eval0=compeval(ev(1,1),nsets,idt0)
+        eval0=compeval(ev(1,1),nsets,idt1)
         if (eval<eval0 .and. eval0<1)exit
         if (mod(iter,10)==0 .and. plev>=0) write(*,*)iter,eval,eval0
         if (iwrev>0 .and. iter>0 .and. mod(iter,iwrev)==0)
      $    call writeev('ev',ev,nsets,nev)
         if (iwrzc>0 .and. iter>0 .and. mod(iter,iwrzc)==0)
-     $    call writeevcriterion('ev.zc',ev,nsets,16,idt0)
+     $    call writeevcriterion('ev.zc',ev,nsets,16,idt1)
       enddo
       call anev(ev,nsets,idt,eval)
       write(*,*)iter,eval,eval0
       call writeev('ev',ev,nsets,nev)
-      call writeevcriterion('ev.zc',ev,nsets,16,idt0)
+      call writeevcriterion('ev.zc',ev,nsets,16,idt1)
       end
       
       

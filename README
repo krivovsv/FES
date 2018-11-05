@@ -4,16 +4,22 @@ Tools:
 
 npvrcop - NonParametric Variational Reaction Coordinate OPtimization. Given a long equilbrium trajectory and two boundary states A and B the programm finds the optimal RC (the committor) between the two boundary states. Nonparametric means that the programm computes the RC timeseries r(t) - the value of the RC for every snapshot of trajectory, rathen then parameters of a functional form approximating the RC.
 
-npvevop - NonParametric Variational EigenVector OPtimization. Given a long equilbrium trajectory the programm finds the right eigenvector(s) of the Transition Matrix. 
+npvevop - NonParametric Variational EigenVector OPtimization. Given a long equilbrium trajectory the programm finds the right eigenvector(s) of the Transition Matrix (transfer operator). 
 
 fep1d.py - script for the analysis and validation of RCs, construction of free energy profiles and analysis of dynamics.
 
 monitor.py, monitor2.py, monitorev.py - scripts to monitor optimization of RCs or eigenvectors in real time. They show the free energy profiles as a function of the RC, as well as stringent optimality criteria.
 
 
-Usage of npvrcop:
+General workflow:
+Given a trajectory, one first determines an optimal RC using npvrcop or npvevop. If one has an order parameter (e.g., the number of native contacts or the rmsd from the native structure for protein folding simulation) one can use them to define two boundary states and use npvrcop. If no order parameter is known, one can use npvevop. The monitor scripts can be used to monitor how the optimization progresses. After the putative optimal RC has been determined, the fep1d script is used to plot the profiles and analyze the dynamics.
 
-npvrcop --key1 value1 --key2 value2 ...
+---------------npvrcop---------------------------------------------------------
+NonParametric Variational Reaction Coordinate OPtimization
+The underlying theory is described in J. Chem. Phys. 2015 143(18):184108 and J Chem Theory Comput. 2018 14(7):3418-3427.
+
+Usage: npvrcop --key1 value1 --key2 value2 ...
+The number of openmp threads to use is controlled by environment variable OMP_NUM_THREADS. In bash it can be set by, e.g., export OMP_NUM_THREADS=4
 
 A simple usage example:
 
@@ -32,7 +38,6 @@ Parameters
 --xB  the boundary for the state B along the seed RC. default value 1
 --plev printing level. default value 0
 --ny the degree of the polynomial used to update RC in iterations. default value 4
-
 --niter the maximum number of iterations of optimization. default value 1000000
 
 --dr2 the minimal value of dr^2/2 to optimize, default value is NAB, the number of transitions from state A to B.
@@ -46,10 +51,60 @@ Parameters
 --iwrzc frequency to save zh(r) and zc1(r,dt) profiles, default value 200. the profiles are saved in file rc.zc in the following format:
 r zh1(r) zh2(r) zc1(r,dt=1) zc1(r,dt=2) .... zc1(r,dt=2^16). Here zh1(r) and zh2(r) are conventional density of states computed in two different way, first using the conventional histogram, second by using 2Z_{C,-1}(r). z_{C,1}(r,dt) profiles are used as a stringent test of RC optimality or RC closeness to the committor. For the committor Z_{C,1}(q,dt)=NAB.
 
-One can monitor how these profiles change during optimization by using script monitor.py or monitor2.py, which can be run as monitor.py & or monitor2.py &. The scripts plots zh and zc1 profiles. It monitors the file rc.zc and updates the plot every time the file has been changed.
+One can monitor how these profiles change during optimization by using script monitor.py or monitor2.py, which can be run as monitor.py & or monitor2.py &. The scripts plot zh and zc1 profiles. They monitor the file rc.zc and updates the plot every time the file has been changed.
 
 During optimization the program prints: iter,   dr^2/2,   NAB; where iter is the iteration number, dr^2/2 is the current value of dr^2/2 and NAB is the number of transitions from state A to state B. As optimization progresses dr^2/2 decreases.
-The lowest value of dr^2/2 is achieved for committor and equals NAB. For a realistic system with limited sampling dr^2/2 could become lower than NAB, which is an indication of overfitting.
+The lowest value of dr^2/2 is achieved for committor and equals NAB. For a realistic system with limited sampling dr^2/2 could become lower than NAB, which is an indication of overfitting. In this case, it could be a good idea to stop optimization early and have the RC sub-optimal in a uniform manner, rather than some parts being under, while other over-optimized. Alternatively, one can use adaptive nonparametric optimization, which is not implemented yet.
 
-After the optimal RC has been determined, its properties can be analysed with script fep1d.py. In particular, one is advised to transform the RC to a natural RC, along which the diffusion coefficient is constant D=1 and build the free energy profiles.
+After the putative optimal RC has been determined, its properties can be analysed with script fep1d.py. In particular, one is advised to transform the RC to a natural RC, along which the diffusion coefficient is constant D=1 and build the free energy profiles.
 
+---------------npvevop---------------------------------------------------------
+NonParametric Variational EigenVector OPtimization.
+The underlying theory is described in J. Chem. Phys. 2015 143(18):184108
+
+Usage: npvevop --key1 value1 --key2 value2 ...
+The number of openmp threads to use is controlled by environment variable OMP_NUM_THREADS. In bash it can be set by, e.g., export OMP_NUM_THREADS=4
+
+A simple usage example: npvrcop --idcd inputdcdfilename 
+
+Will find the (second) right eigenvector of the transfer operator describing the stochastic dynamics of the trajectory. The first right eigenvector has all components equal to 1.
+
+
+Parameters
+
+--idcd input dcd file name. default value "in.dcd"
+--seed the seed value for the RNG. default value 1234
+--plev printing level. default value 0
+--ny the degree of the polynomial used to update RC in iterations. default value 3
+--nev number of eigenvectors to find. default value is 1. nev>1 is not implemented yet.
+--niter the maximum number of iterations of optimization. default value 1000000
+
+--idt1 the time interval to compare the eigenvector properties to establish convergence of optimization. Should be >>1. default value is 4096.
+
+--natom number of atoms to use during optimization. default value 0, meaning all atoms. A smaller number of atoms could be used to decrease the memory footprint. In this case every 100000 iterations the programs randomly selects natom atoms and read their coordinates.
+
+--nsets number of trajectory snapshots (sets) to use during optimization. default value 0, meaning full trajectory
+
+--iwrcr frequency to save ev time-series, default value 2000, meaning the ev will be written every 2000 iterations. The ev time-series is saved into file "ev".
+
+--iwrzc frequency to save zh(r) and ZC/ZC(r,dt) profiles, default value 200. the profiles are saved in file ev.zc in the following format:
+r zh1(r) zh2(r) ZC/ZC(r,dt=1) ZC/ZC(r,dt=2) .... ZC/ZC(r,dt=2^16). Here zh1(r) and zh2(r) are conventional density of states computed in two different way, first using the conventional histogram, second by using 2Z_{C,-1}(r). ZC/ZC(r,dt) profiles are used as a stringent test of convergence of eigenvector optimization. When a putative RC equals an  eigenvector ZC/ZC(r,dt)=1.
+
+One can monitor how these profiles change during optimization by using script monitorev.py, which can be run as monitorev.py &. The script plots zh and ZC/ZC profiles. It monitors the file ev.zc and updates the plot every time the file has been changed.
+
+During optimization the program prints: iter   eval   eval(idt1); where iter is the iteration number, eval is the current eigenvalue and eval(idt1) estimated at timescale idt1. As optimization progresses eval decreases. Optimization stops when eval<=eval(idt1)
+In case of over-fitting which can be judged based on Zc/zc profiles, it could be a good idea to stop optimization early and have the RC sub-optimal in a uniform manner, rather than some parts being under, while other over-optimized. Alternatively, one can use adaptive nonparametric optimization, which is not implemented yet.
+
+---------------fep1d.py--------------------------------------------------------
+Script for the analysis of putative RCs, construction of free energy profiles and analysis of dynamics. To list the options, invoke the script without any options. Description of the script, the formalism and some examples of analysis are presented in the paper J Comput Chem. 2015 May 5;36(12):878-82.
+
+Examples of usage:
+
+fep1d.py rc --dx=0.0000001 --transformto=natural3 --writerc=1
+Transforms RC to natural coordinate, where diffusion coefficient is constant D=1
+
+fep1d.py rc.natural3.dat --cfep=0 --hfep=3 
+Builds free energy profile along the natural coordinate, using relation ZH(r)=2Z_{C,-1}(r).
+
+fep1d.py rc.natural3.dat --mfpt=1
+Computes the number of transitions, the mean first passage times, the mean transition path times, using the diffusion on the free energy profile and directly from the trajectory, between any two given regions on the profile. For the committor RC, the former and latter are equal, up to statistical uncertainties.

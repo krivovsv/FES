@@ -15,7 +15,7 @@ def plot(name):
   ax1.set_ylabel('$\mathrm{F/kT}$')
   ax1.set_xlabel('r')
   ax2=ax1.twinx()
-  ax2.set_ylabel('$-\ln \mathrm{Z_{C,1}}$')
+  ax2.set_ylabel('$-\ln \mathrm{Z_C/Z_C}$')
   f=open(name)
   ls=[]
   for l in f:
@@ -26,8 +26,8 @@ def plot(name):
   lx=[l[0] for l in ls]
   ax1.plot(lx,[l[1] for l in ls], 'xb',label='$-\ln \mathrm{Z_H}(r)$')
   ax1.plot(lx,[l[2] for l in ls], '+r',label='$-\ln \mathrm{2Z_{C,-1}}(r)$')
-  ax2.plot(lx,[l[3] for l in ls], '-k',label='$-\ln \mathrm{Z_{C,1}}(r,1)$')
-  ax2.plot(lx,[l[4] for l in ls], '-', color= '0.5',label='$-\ln \mathrm{Z_{C,1}}(r,dt>1)$')
+  ax2.plot(lx,[l[3] for l in ls], '-k',label='$-\ln \mathrm{Z_C/Z_C}(r,1)$')
+  ax2.plot(lx,[l[4] for l in ls], '-', color= '0.5',label='$-\ln \mathrm{Z_C/Z_C}(r,dt>1)$')
   for i in range(5,len(ls[0])):
     ax2.plot(lx,[l[i] for l in ls], '-', color='0.5')
 #  l1,lab1=ax1.get_legend_handels_labels()
