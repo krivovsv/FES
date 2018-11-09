@@ -27,7 +27,9 @@
       real*8 ev(nsets,nev),y(nsets),eval
 
       real*8 dxdx((npy+1)*(npy+1)+npev-npy,(npy+1)*(npy+1)+npev-npy)
+      real*8 dxdx0((npy+1)*(npy+1)+npev-npy,(npy+1)*(npy+1)+npev-npy)
       real*8 xx((npy+1)*(npy+1)+npev-npy,(npy+1)*(npy+1)+npev-npy)
+      real*8 xx0((npy+1)*(npy+1)+npev-npy,(npy+1)*(npy+1)+npev-npy)
       real*8 al((npy+1)*(npy+1)+npev-npy,(npy+1)*(npy+1)+npev-npy)
 
       integer info,lwork
@@ -41,35 +43,46 @@
       integer i,j,k,isize,iset,iev
       
       real*8 compeval
+      real*8 ym
+      integer iskip
      
       isize=(npy+1)*(npy+1)+npev-npy
       lwork=isize*10
       
-      dxdx=0
-      xx=0
+      dxdx0=0
+      xx0=0
       
-      call compxxev(nev,ev,npev,npy,y,rcfix,nsets,idt,xx,dxdx,isize)
-      nij2=0
+c      ym=y(1)
+c      do iset=1,nsets
+c       ym=max(ym,abs(y(iset)))
+c      enddo
+c      y=y/ym
+
+      
+      call compxxev(nev,ev,npev,npy,y,rcfix,nsets,idt,xx0,dxdx0,isize)
+      iskip=0
+10    nij2=0
       i21=0
-      do i=1,isize  ! select only non zero
-        if (i>1 .and. dxdx(i,i)<1e-5)cycle
+      do i=1,isize-iskip  ! select only non zero
+        if (i>1 .and. dxdx0(i,i)<1e-5)cycle
         nij2=nij2+1
         i12(nij2)=i
         i21(i)=nij2
       enddo
       do i=1,nij2
         do j=1,i
-          dxdx(i,j)=dxdx(i12(i),i12(j))/nsets
+          dxdx(i,j)=dxdx0(i12(i),i12(j))/nsets
           dxdx(j,i)=dxdx(i,j)
-          xx(i,j)=xx(i12(i),i12(j))/nsets
+          xx(i,j)=xx0(i12(i),i12(j))/nsets
           xx(j,i)=xx(i,j)
         enddo
       enddo
       call dsygv(1,'V','U',nij2,dxdx,isize,xx,isize,w,work,lwork,info)
       if (info/=0)then
-c        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
-        return 
-        stop
+        iskip=iskip+1
+        if (iskip<isize-2)goto 10
+        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
+        return
       endif
 
       if (w(2)<1e-7)then
@@ -79,7 +92,7 @@ c        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
 
       do j=1,nev
         do i=1,nij2
-          al(i,j)=dxdx(i,1+j)  ! linear term should be positive
+          al(i,j)=dxdx(i,1+j) 
         enddo  
       enddo
       
@@ -119,8 +132,13 @@ c        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
 !$OMP END PARALLEL DO
       
       evalt=compeval(evt(1,1),nsets,idt)
+c      write(*,*)'result ', eval,evalt,-log(1-w(2)/2)/idt,iskip
+c     $ ,isize-iskip
       if (evalt>eval)then
-        write(*,*)'skipping result ', eval,evalt,w(2)/2
+        iskip=iskip+1
+        if (iskip<isize-2)goto 10
+        write(*,*)'skipping result ', eval,evalt,-log(1-w(2)/2)/idt
+     $   ,iskip,isize-iskip
         return
       endif
       r=0
@@ -237,7 +255,7 @@ c        write(*,*)'info=',info,nij2,npev,npy,i12(info-nij2)
       real*8 rc(nsets),eval
       
       integer ni,nev
-      parameter (ni=10000,nev=3)
+      parameter (ni=1000,nev=3)
       real*8 zc1(ni),zh(ni),u(ni),dudx(ni)
 
       integer jdt,i,i1,i2,iset,j,mev
@@ -290,6 +308,105 @@ c      write(*,*)mev,w(1:nev)/dx**2
       do i=2,ni
         u(i)=z(i-1,nev-1)
         dudx(i)=(z(i,nev-1)-z(i-1,nev-1))/dx
+      enddo
+      u(1)=u(2)
+      dudx(1)=dudx(2)
+          
+      s=0
+!$OMP PARALLEL  default(none) 
+!$OMP&   SHARED(nsets,rc,dx,i1,i2,u,dudx,rcn,xmin) 
+!$OMP&   PRIVATE(j)
+!$OMP&   reduction(+:s) 
+
+!$OMP DO
+      do iset=1,nsets
+        j=(rc(iset)-xmin)/dx
+        if (j<1)j=1
+        if (j>ni)j=ni
+        rcn(iset)=u(j)+dudx(j)*(rc(iset)-j*dx-xmin)
+        s=s+rcn(iset)
+      enddo  
+!$OMP END PARALLEL
+      s=s/nsets
+      rcn=rcn-s
+      s=0
+      do iset=1,nsets
+        s=s+rcn(iset)**2
+      enddo
+      s=sqrt(s/nsets)
+      rcn=rcn/s
+      s=0
+      do i=1,nsets,1000
+        s=s+rc(i)*rcn(i)
+      enddo
+      if(s<0)rcn=-rcn
+      
+      evaln=compeval(rcn,nsets,1)
+      if (evaln<eval) then
+        rc=rcn
+        eval=evaln
+      endif
+      end
+
+      subroutine anev2(rc,nsets,idt,eval)
+      implicit none
+      integer nsets,idt
+      real*8 rc(nsets),eval
+      
+      integer ni,nev
+      parameter (ni=1000,nev=3)
+      real*8 zc1(ni),zh(ni),u(ni),dudx(ni)
+
+      integer jdt,i,i1,i2,iset,j,mev
+      real*8 rcn(nsets),s,xmin,dx,evaln,compeval,s2
+      real*8 dzc1,d(ni),e(ni-1),w(ni),z(ni,nev)
+
+      real*8 ud(ni),ld(ni),rho(ni)
+      
+      real*8 work(5*ni)
+      integer iwork(5*ni),ifail(ni),info
+      
+      
+      call compzc1(rc,nsets,zc1,ni,xmin,dx,idt)
+      call compzh2(rc,nsets,zh,ni,xmin,dx)
+      
+      do i=2,ni
+        if (zc1(i)<1e-5)zc1(i)=zc1(i-1)
+        if (zh(i)<1e-5)zh(i)=zh(i-1)
+      enddo
+      
+      do i=1,ni
+        if (i==1) then
+          ud(i)=sqrt(abs(zc1(i+1)*zc1(i)))/abs(zh(i))
+          d(i)=-ud(i)
+        elseif(i==ni) then
+          ld(i-1)=sqrt(abs(zc1(i-1)*zc1(i)))/abs(zh(i))
+          d(i)=-ld(i-1)
+        else
+          ud(i)=sqrt(abs(zc1(i+1)*zc1(i)))/abs(zh(i))
+          ld(i-1)=sqrt(abs(zc1(i-1)*zc1(i)))/abs(zh(i))
+          d(i)=-ud(i)-ld(i-1)
+        endif
+      enddo
+      !symmetrize
+      do i=1,ni-1
+        ud(i)=ud(i)*sqrt(abs(zh(i)/zh(i+1)))
+        ld(i)=ld(i)*sqrt(abs(zh(i+1)/zh(i)))
+      enddo
+c          dstevx (JOBZ, RANGE, N, D, E, VL, VU, IL, IU, ABSTOL, M, W,
+c           Z, LDZ, WORK, IWORK, IFAIL, INFO)
+      call dstevx('V','I',ni,d,ld,0d0,0d0,ni-nev+1,ni,1d-15,mev,w,z,ni
+     $            ,work,iwork,ifail,info)
+      if (mev==0)return
+c      write(*,*)mev,w(1:nev)/dx**2
+      do j=1,nev
+        do i=1,ni
+          z(i,j)=z(i,j)/sqrt(zh(i))
+        enddo
+      enddo
+      do i=2,ni
+        u(i)=z(i-1,nev-2)
+        dudx(i)=(z(i,nev-2)-z(i-1,nev-2))/dx
       enddo
       u(1)=u(2)
       dudx(1)=dudx(2)
@@ -426,8 +543,8 @@ c      ci(ni)=ci(ni-1)
 !$OMP&   reduction(+:dx2,x2) 
 
 !$OMP DO
-      do iset=1,nsets-dt
-        dx2=dx2+(ev(iset+dt)-ev(iset))**2
+      do iset=1,nsets
+        if(iset+dt<=nsets) dx2=dx2+(ev(iset+dt)-ev(iset))**2
         x2=x2+ev(iset)**2
       enddo    
 !$OMP END PARALLEL 
@@ -487,11 +604,13 @@ c      ci(ni)=ci(ni-1)
       open(unit=11,file=name)
       do i=1,ni-1
         do idt=1,ldt
-        if (i>ni-10 .and. zc1i(i-1,idt) >1e-5 .and.
-     $   abs(zc1i(i,idt)/zc10i(i)/(zc1i(i-1,idt)/zc10i(i-1))-1)>0.5)
-     $   goto 10 ! to avoid boundary spikes
+          if (i>ni-10)then
+            if(zc1i(i-1,idt) >1e-5 .and.
+     $      abs(zc1i(i,idt)/zc10i(i)/(zc1i(i-1,idt)/zc10i(i-1))-1)>0.5)
+     $      goto 10 ! to avoid boundary spikes
+          endif
         enddo
-        write(11,'(f8.4, 20f9.3)')dx*i+xmin
+        write(11,'(f9.4, 20f9.3)')dx*i+xmin
      $   ,-log(max(zh(i),1d0)/dx)
      $   ,-log(max(zh2(i),1d0)*2)
      $   ,(-log(zc1i(i,idt)/zc10i(i)/sc(idt)/2),idt=1,ldt)
@@ -576,6 +695,8 @@ c      ci(ni)=ci(ni-1)
 
       j0=(0-xmin)/dx
       ci=0
+      if (j0<1)j0=1
+      if (j0>ni)j0=ni
 
 !$OMP PARALLEL  default(none) 
 !$OMP&   SHARED(nsets,rc,j0,xmin,dx,ni) 

@@ -85,7 +85,7 @@
       if (natom==0)natom=natom0
       if (natom>natom0)stop'natom > number of atoms in the trajectory'
       if (nev>1)stop'nev>1 is not implemented yet'
-      r=rand(-abs(seed))
+      write(*,*)'RNG(seed)=',rand(-abs(seed))
 !$OMP PARALLEL
 !$    if (plev>=0 .and. omp_get_thread_num()==0)
 !$   $  write(*,*)'number of threads', omp_get_num_threads()
@@ -109,30 +109,44 @@
       real*4 x(nsets,natom),y(nsets,natom),z(nsets,natom)
       
       integer i21(natom)
-
-      do iset=1,nsets
-        ev(iset,1)=rand()*2-1
-      enddo
-      rcfix=0
-      idt=1
-      eval=compeval(ev(1,1),nsets,idt)
+      real*8 evt
+      real*8 disp,cd
       
-
+      ! initialization
+      call readxyz(idcd,x,y,z,natom0,natom,nsets,i21) 
+      idt=1
+      call comprij(x,y,z,natom,nsets,ev(1,1))
+      eval=10000
+      call anev(ev(1,1),nsets,idt,eval)
+      rcfix=0
+      cd=disp(ev,nsets,16)
+      write(*,*)eval,cd
+      
       if (plev>=0)write(*,*)'  iter   eval      eval0'
       do iter=0,niter
-        if (iter==0 .or. (natom/=natom0 .and. mod(iter,100000)==0))
+        if (iter>0 .and. (natom/=natom0 .and. mod(iter,100000)==0))
      $    call readxyz(idcd,x,y,z,natom0,natom,nsets,i21) 
          
-        call comprij(x,y,z,natom,nsets,rij)
-        call optimdx2ev(ev,nev,nsets,ny,rij,ny,rcfix,idt,eval)
+10      call comprij(x,y,z,natom,nsets,rij)
+        evt=100
+        call anev(rij,nsets,idt,evt)
+c        write(*,*)evt
+        if (evt<1e-4)then
+          write(*,*)'eval(rij)=',evt,'<1e-4, recomputing rij'
+          goto 10
+        endif
+        if (evt>1e-1)goto 10
+        call optimdx2ev2(ev,nev,nsets,ny,rij,ny,rcfix,idt,eval,cd)
         if (mod(iter,5)==0)
      $    call anev(ev,nsets,idt,eval)
         if (mod(iter,10)==0)
      $    call optimdx2ev(ev,nev,nsets,10,rij,0,rcfix,idt,eval)
-
+        
         eval0=compeval(ev(1,1),nsets,idt1)
+        if (mod(iter,5)==0)
+     $    cd=disp(ev,nsets,16)
         if (eval<eval0 .and. eval0<1)exit
-        if (mod(iter,10)==0 .and. plev>=0) write(*,*)iter,eval,eval0
+        if (mod(iter,10)==0 .and. plev>=0) write(*,*)iter,eval,eval0,cd
         if (iwrev>0 .and. iter>0 .and. mod(iter,iwrev)==0)
      $    call writeev('ev',ev,nsets,nev)
         if (iwrzc>0 .and. iter>0 .and. mod(iter,iwrzc)==0)

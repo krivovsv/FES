@@ -37,14 +37,20 @@ def plot(name):
   fig.canvas.flush_events()
   plt.draw()
 
-name='ev.zc'
-ts=os.path.getmtime(name)
-plot(name)
-while True:
-  time.sleep(0.1)
-  tsn=os.path.getmtime(name)
-  if tsn!=ts:
-    ts=tsn
+def main(name):
+  ts=os.path.getmtime(name)
+  plot(name)
+  while True:
     time.sleep(0.1)
-    plot(name)
-  
+    tsn=os.path.getmtime(name)
+    if tsn!=ts:
+      ts=tsn
+      time.sleep(0.1)
+      plot(name)
+
+import sys
+argv=sys.argv
+if len(argv)==1:name='ev.zc'
+name=argv[1]
+main(name)
+
